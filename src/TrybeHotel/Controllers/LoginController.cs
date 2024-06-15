@@ -20,7 +20,20 @@ namespace TrybeHotel.Controllers
 
         [HttpPost]
         public IActionResult Login([FromBody] LoginDto login){
-           throw new NotImplementedException();
+            try
+            {
+                var user = _repository.Login(login);
+
+                var tokenGenerator = new TokenGenerator();
+                var generatedToken = tokenGenerator.Generate(user);
+                
+                return Ok(new { token = generatedToken });
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = new { message = ex.Message };
+                return Unauthorized(errorMessage);
+            }
         }
     }
 }

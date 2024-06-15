@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using TrybeHotel.Dto;
+using Microsoft.EntityFrameworkCore;
 
 namespace TrybeHotel.Controllers
 {
@@ -21,18 +22,48 @@ namespace TrybeHotel.Controllers
         }
 
         [HttpPost]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [Authorize(Policy = "Client")]
         public IActionResult Add([FromBody] BookingDtoInsert bookingInsert){
-            throw new NotImplementedException();
+            try
+            {
+                var token = HttpContext.User.Identity as ClaimsIdentity;
+                var emailClaim = token?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Email);
+                var email = emailClaim?.Value;
+
+                var newBooking = _repository.Add(bookingInsert, email!);
+                return StatusCode(201, newBooking);
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = new { message = ex.Message };
+                return BadRequest(errorMessage);
+            }
         }
 
 
         [HttpGet("{Bookingid}")]
-        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [Authorize(Policy = "Client")]
         public IActionResult GetBooking(int Bookingid){
-            throw new NotImplementedException();
+            try
+            {
+                var token = HttpContext.User.Identity as ClaimsIdentity;
+                var emailClaim = token?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Email);
+                var email = emailClaim?.Value;
+
+                var booking = _repository.GetBooking(Bookingid, email!);
+
+                return Ok(booking);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                var unauthorizedMessage = new { message = ex.Message };
+                return Unauthorized(unauthorizedMessage);
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = new { message = ex.Message };
+                return BadRequest(errorMessage);
+            }
         }
     }
 }

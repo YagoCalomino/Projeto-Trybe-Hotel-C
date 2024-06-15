@@ -1,9 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TrybeHotel.Models;
 using TrybeHotel.Repository;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace TrybeHotel.Controllers
 {
@@ -19,18 +17,30 @@ namespace TrybeHotel.Controllers
 
         [HttpGet("{HotelId}")]
         public IActionResult GetRoom(int HotelId){
-            throw new NotImplementedException();
+            var rooms = _repository.GetRooms(HotelId);
+            return Ok(rooms);
         }
 
         [HttpPost]
+        [Authorize(Policy = "Admin")]
         public IActionResult PostRoom([FromBody] Room room){
-            throw new NotImplementedException();
+            var newRoom = _repository.AddRoom(room);
+            return StatusCode(201, newRoom);
         }
 
         [HttpDelete("{RoomId}")]
+        [Authorize(Policy = "Admin")]
         public IActionResult Delete(int RoomId)
         {
-             throw new NotImplementedException();
+            try
+            {
+                _repository.DeleteRoom(RoomId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

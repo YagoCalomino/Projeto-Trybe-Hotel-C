@@ -10,6 +10,10 @@ using System.Text.Json;
 using System.Diagnostics;
 using System.Xml;
 using System.IO;
+using FluentAssertions;
+using TrybeHotel.Dto;
+using TrybeHotel.Services;
+using System.Net.Http.Headers;
 
 public class LoginJson {
     public string? token { get; set; }
@@ -76,6 +80,17 @@ public class IntegrationTest: IClassFixture<WebApplicationFactory<Program>>
         }).CreateClient();
     }
  
+     private void AuthenticateAdminUser()
+    {
+        UserDto user = new UserDto
+        {
+            Email = "ana@trybehotel.com",
+            UserType = "admin"
+        };
+        var token = new TokenGenerator().Generate(user);
+        _clientTest.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
     [Trait("Category", "Meus testes")]
     [Theory(DisplayName = "Executando meus testes")]
     [InlineData("/city")]
@@ -85,4 +100,206 @@ public class IntegrationTest: IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(System.Net.HttpStatusCode.OK, response?.StatusCode);
     }
    
+       [Trait("Category", "Meus testes")]
+    [Theory(DisplayName = "Testa se a rota adiciona uma cidade com sucesso")]
+    [InlineData("/city")]
+    public async Task TestPostCity(string url)
+    {
+        var cityMock = new
+        {
+            Name = "Nome criativo"
+        };
+
+        var content = new StringContent(JsonConvert.SerializeObject(cityMock), System.Text.Encoding.UTF8, "application/json");
+        var response = await _clientTest.PostAsync(url, content);
+        var resStr = await response.Content.ReadAsStringAsync();
+        var city = JsonConvert.DeserializeObject<CityDto>(resStr);
+
+        city.Should().BeEquivalentTo(cityMock);
+        Assert.Equal(System.Net.HttpStatusCode.Created, response?.StatusCode);
+    }
+
+    [Trait("Category", "Meus testes")]
+    [Theory(DisplayName = "Testa se a rota /hotel retorna os dados corretos")]
+    [InlineData("/hotel")]
+    public async Task TestGetHotels(string url)
+    {
+        var expectedHotels = new List<HotelDto>
+        {
+            new HotelDto
+            {
+                HotelId = 1,
+                Name = "Trybe Hotel Manaus",
+                Address = "Address 1",
+                CityId = 1,
+                CityName = "Manaus"
+            },
+            new HotelDto
+            {
+                HotelId = 2,
+                Name = "Trybe Hotel Palmas",
+                Address = "Address 2",
+                CityId = 2,
+                CityName = "Palmas"
+            },
+            new HotelDto
+            {
+                HotelId = 3,
+                Name = "Trybe Hotel Ponta Negra",
+                Address = "Address 3",
+                CityId = 1,
+                CityName = "Manaus"
+            }
+        };
+
+        var response = await _clientTest.GetAsync(url);
+        var hotelsStr = await response.Content.ReadAsStringAsync();
+        var hotels = JsonConvert.DeserializeObject<List<HotelDto>>(hotelsStr);
+
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        hotels.Should().BeEquivalentTo(expectedHotels);
+    }
+
+    [Trait("Category", "Meus testes")]
+    [Theory(DisplayName = "Testa se a rota adiciona um hotel com sucesso")]
+    [InlineData("/hotel")]
+    public async Task TestPostHotel(string url)
+    {
+        AuthenticateAdminUser();
+
+        var hotelInput = new
+        {
+            Name = "Trybe Hotel RJ",
+            Address = "Avenida Atlântica, 1400",
+            CityId = 2
+        };
+        var expectedHotel = new HotelDto
+        {
+            HotelId = 4,
+            Name = "Trybe Hotel RJ",
+            Address = "Avenida Atlântica, 1400",
+            CityId = 2,
+            CityName = "Palmas"
+        };
+
+        var content = new StringContent(JsonConvert.SerializeObject(hotelInput), System.Text.Encoding.UTF8, "application/json");
+        var response = await _clientTest.PostAsync(url, content);
+        var resStr = await response.Content.ReadAsStringAsync();
+        var hotel = JsonConvert.DeserializeObject<HotelDto>(resStr);
+
+        hotel.Should().BeEquivalentTo(expectedHotel);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created);
+    }
+
+    [Trait("Category", "Meus testes")]
+    [Theory(DisplayName = "Testa se a rota /room retorna os dados corretos")]
+    [InlineData("/room/1")]
+    public async Task TestGetRooms(string url)
+    {
+        var expectedRooms = new List<RoomDto>
+        {
+            new RoomDto
+            {
+                RoomId = 1,
+                Name = "Room 1",
+                Capacity = 2,
+                Image = "Image 1",
+                Hotel = new HotelDto
+                {
+                    HotelId = 1,
+                    Name = "Trybe Hotel Manaus",
+                    Address = "Address 1",
+                    CityId = 1,
+                    CityName = "Manaus"
+                }
+            },
+            new RoomDto
+            {
+                RoomId = 2,
+                Name = "Room 2",
+                Capacity = 3,
+                Image = "Image 2",
+                Hotel = new HotelDto
+                {
+                    HotelId = 1,
+                    Name = "Trybe Hotel Manaus",
+                    Address = "Address 1",
+                    CityId = 1,
+                    CityName = "Manaus"
+                }
+            },
+            new RoomDto
+            {
+                RoomId = 3,
+                Name = "Room 3",
+                Capacity = 4,
+                Image = "Image 3",
+                Hotel = new HotelDto
+                {
+                    HotelId = 1,
+                    Name = "Trybe Hotel Manaus",
+                    Address = "Address 1",
+                    CityId = 1,
+                    CityName = "Manaus"
+                }
+            }
+        };
+
+        var response = await _clientTest.GetAsync(url);
+        var roomsStr = await response.Content.ReadAsStringAsync();
+        var rooms = JsonConvert.DeserializeObject<List<RoomDto>>(roomsStr);
+
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        rooms.Should().BeEquivalentTo(expectedRooms);
+    }
+
+    [Trait("Category", "Meus testes")]
+    [Theory(DisplayName = "Ao adicionar um novo quarto retorna o status code correto")]
+    [InlineData("/room")]
+    public async Task TestPost(string url)
+    {
+        AuthenticateAdminUser();
+
+        var roomInput = new
+        {
+            Name = "Nome criativo",
+            Capacity = 1,
+            Image = "Imagem",
+            HotelId = 1
+        };
+        var expectedRoom = new RoomDto
+        {
+            RoomId = 10,
+            Name = "Nome criativo",
+            Capacity = 1,
+            Image = "Imagem",
+            Hotel = new HotelDto
+            {
+                HotelId = 1,
+                Name = "Trybe Hotel Manaus",
+                Address = "Address 1",
+                CityId = 1,
+                CityName = "Manaus"
+            }
+        };
+
+        var content = new StringContent(JsonConvert.SerializeObject(roomInput), System.Text.Encoding.UTF8, "application/json");
+        var response = await _clientTest.PostAsync(url, content);
+        var resStr = await response.Content.ReadAsStringAsync();
+        var room = JsonConvert.DeserializeObject<RoomDto>(resStr);
+
+        room.Should().BeEquivalentTo(expectedRoom);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created);
+    }
+
+    [Trait("Category", "Meus testes")]
+    [Theory(DisplayName = "Deletar um quarto")]
+    [InlineData("/room/1")]
+    public async Task TestDeleteRoom(string url)
+    {
+        AuthenticateAdminUser();
+
+        var response = await _clientTest.DeleteAsync(url);
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, response?.StatusCode);
+    }
 }
