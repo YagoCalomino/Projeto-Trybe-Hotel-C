@@ -19,29 +19,33 @@ namespace TrybeHotel.Services
            };
 
         }
-        public string Generate(UserDto user)
+         public string Generate(UserDto user)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor()
+            var manipuladorToken = new JwtSecurityTokenHandler();
+            var chaveCodificada = Encoding.ASCII.GetBytes(_tokenOptions.Secret);
+
+            var descritorToken = new SecurityTokenDescriptor
             {
                 Subject = AddClaims(user),
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(Encoding.ASCII.GetBytes(_tokenOptions.Secret!)),
-                    SecurityAlgorithms.HmacSha256Signature
-                ),
-                Expires = DateTime.UtcNow.AddDays(_tokenOptions.ExpiresDay)
+                Expires = DateTime.UtcNow.AddDays(_tokenOptions.ExpiresDay),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(chaveCodificada), SecurityAlgorithms.HmacSha256Signature)
             };
 
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+            var tokenCriado = manipuladorToken.CreateToken(descritorToken);
+            return manipuladorToken.WriteToken(tokenCriado);
         }
 
         private ClaimsIdentity AddClaims(UserDto user)
         {
-            var claims = new ClaimsIdentity();
-            claims.AddClaim(new Claim(ClaimTypes.Email, user.Email!));
-            claims.AddClaim(new Claim(ClaimTypes.Role, user.UserType!));
-            return claims;
+            var identidadeClaims = new ClaimsIdentity();
+            identidadeClaims.AddClaim(new Claim(ClaimTypes.Email, user.Email!));
+
+            if (user.UserType == "admin")
+            {
+                identidadeClaims.AddClaim(new Claim(ClaimTypes.Role, "admin"));
+            }
+
+            return identidadeClaims;
         }
     }
 }

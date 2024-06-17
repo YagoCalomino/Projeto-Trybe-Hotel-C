@@ -12,7 +12,7 @@ namespace TrybeHotel.Controllers
     public class HotelController : Controller
     {
         private readonly IHotelRepository _repository;
-  
+
         public HotelController(IHotelRepository repository)
         {
             _repository = repository;
@@ -20,15 +20,16 @@ namespace TrybeHotel.Controllers
         
         [HttpGet]
         public IActionResult GetHotels(){
-            var hotels = _repository.GetHotels();
-            return Ok(hotels);
+            var getAllHotels = _repository.GetHotels();
+            return Ok(getAllHotels);
         }
 
         [HttpPost]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [Authorize(Policy = "Admin")]
         public IActionResult PostHotel([FromBody] Hotel hotel){
-            var newHotel = _repository.AddHotel(hotel);
-            return StatusCode(201, newHotel);
+            var createdHotelNew = _repository.AddHotel(hotel);
+            return CreatedAtAction(nameof(GetHotels), new { id = createdHotelNew.HotelId }, createdHotelNew);
         }
 
     }

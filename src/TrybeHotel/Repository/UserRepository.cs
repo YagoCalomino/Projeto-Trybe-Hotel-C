@@ -17,77 +17,62 @@ namespace TrybeHotel.Repository
 
         public UserDto Login(LoginDto login)
         {
-            var user = _context.Users.Where(u => u.Email == login.Email).FirstOrDefault();
+            var usuario = _context.Users.SingleOrDefault(u => u.Email.Equals(login.Email) && u.Password.Equals(login.Password));
 
-            if (user == null)
+            if (usuario is null)
             {
-                var errorMessage = "Incorrect e-mail or password";
-                throw new Exception(errorMessage);
-            }
-
-            if (user.Password != login.Password)
-            {
-                var errorMessage = "Incorrect e-mail or password";
-                throw new Exception(errorMessage);
+                throw new InvalidOperationException("E-mail ou senha incorretos");
             }
 
             return new UserDto
             {
-                UserId = user.UserId,
-                Email = user.Email,
-                Name = user.Name,
-                UserType = user.UserType
+                UserId = usuario.UserId,
+                Name = usuario.Name,
+                Email = usuario.Email,
+                UserType = usuario.UserType
             };
         }
         public UserDto Add(UserDtoInsert user)
-        {
-            var addedUser = _context.Users.Add(new User
+         {
+            if (_context.Users.Any(u => u.Email.Equals(user.Email)))
+            {
+                throw new InvalidOperationException("O e-mail do usuário já existe");
+            }
+
+            User novoUsuario = new User
             {
                 Name = user.Name,
                 Email = user.Email,
                 Password = user.Password,
                 UserType = "client"
-            }).Entity;
+            };
+
+            _context.Users.Add(novoUsuario);
             _context.SaveChanges();
 
             return new UserDto
             {
-                UserId = addedUser.UserId,
-                Email = addedUser.Email,
-                Name = addedUser.Name,
-                UserType = addedUser.UserType
+                UserId = novoUsuario.UserId,
+                Name = novoUsuario.Name,
+                Email = novoUsuario.Email,
+                UserType = novoUsuario.UserType
             };
-        }
+        } 
 
-        public UserDto? GetUserByEmail(string userEmail)
+        public UserDto GetUserByEmail(string userEmail)
         {
-            var user = _context.Users.Where(u => u.Email == userEmail).FirstOrDefault();
-
-            if (user == null)
-                return null;
-
-            return new UserDto
-            {
-                UserId = user.UserId,
-                Email = user.Email,
-                Name = user.Name,
-                UserType = user.UserType
-            };
+             throw new NotImplementedException();
         }
 
         public IEnumerable<UserDto> GetUsers()
         {
-            var usersList = _context.Users
-                .Select(user => new UserDto
-                {
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    Name = user.Name,
-                    UserType = user.UserType
-                })
-                .ToList();
-
-            return usersList;
+            return _context.Users.Select(u => new UserDto
+            {
+                UserId = u.UserId,
+                Name = u.Name,
+                Email = u.Email,
+                UserType = u.UserType
+            }).ToList();
         }
 
     }

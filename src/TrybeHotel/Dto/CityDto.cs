@@ -1,10 +1,10 @@
-namespace TrybeHotel.Dto {
+namespace TrybeHotel.Dto
+{
+    public class CityDto
+    {
+        public int cityId { get; set; }
+        public string? name { get; set; }
 
-    //2. Refatore o endpoint POST /city
-    //4. Refatore o endpoint GET /city
-     public class CityDto {
-        public int CityId { get; set; }
-        public string Name  { get; set; } = null!;
-        public string State { get; set; } = null!;
+        public string? state { get; set; }
     }
 }

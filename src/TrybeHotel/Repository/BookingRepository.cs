@@ -1,6 +1,5 @@
 using TrybeHotel.Models;
 using TrybeHotel.Dto;
-using Microsoft.EntityFrameworkCore;
 
 namespace TrybeHotel.Repository
 {
@@ -15,94 +14,116 @@ namespace TrybeHotel.Repository
         // 9. Refatore o endpoint POST /booking
         public BookingResponse Add(BookingDtoInsert booking, string email)
         {
-            var user = _context.Users.Where(u => u.Email == email).FirstOrDefault();
-            var selectedRoom = GetRoomById(booking.RoomId);
+            var sala = _context.Rooms.FirstOrDefault(s => s.RoomId == booking.RoomId);
 
-            var newBookingEntity = _context.Bookings.Add(new Booking
+            if (sala is null)
+            {
+                throw new ArgumentException("RoomId inválido");
+            }
+
+            if (booking.GuestQuant > sala.Capacity)
+            {
+                throw new ArgumentException("Quantidade de hóspedes excede a capacidade da sala");
+            }
+
+            var usuario = _context.Users.FirstOrDefault(u => u.Email == email);
+
+            if (usuario == null)
+            {
+                throw new ArgumentException("Email de usuário inválido");
+            }
+
+            var reserva = new Booking
             {
                 CheckIn = booking.CheckIn,
                 CheckOut = booking.CheckOut,
                 GuestQuant = booking.GuestQuant,
                 RoomId = booking.RoomId,
-                UserId = user!.UserId,
-            }).Entity;
+                UserId = usuario.UserId
+            };
 
-            if (selectedRoom.Capacity < newBookingEntity.GuestQuant)
-            {
-                var capacityErrorMessage = "Guest quantity over room capacity";
-                throw new Exception(capacityErrorMessage);
-            }
-
+            _context.Bookings.Add(reserva);
             _context.SaveChanges();
 
-            return GenerateBookingResponse(newBookingEntity);
+            var hotel = _context.Hotels.FirstOrDefault(h => h.HotelId == sala.HotelId);
+            var cidade = _context.Cities.FirstOrDefault(c => c.CityId == hotel!.CityId);
+
+            return new BookingResponse
+            {
+                BookingId = reserva.BookingId,
+                CheckIn = reserva.CheckIn,
+                CheckOut = reserva.CheckOut,
+                GuestQuant = reserva.GuestQuant,
+                Room = new RoomDto
+                {
+                    RoomId = sala.RoomId,
+                    Name = sala.Name,
+                    Capacity = sala.Capacity,
+                    Image = sala.Image,
+                    Hotel = new HotelDto
+                    {
+                        HotelId = hotel!.HotelId,
+                        Name = hotel.Name,
+                        Address = hotel.Address,
+                        CityId = cidade!.CityId,
+                        CityName = cidade.Name,
+                        State = sala.Hotel!.City!.State
+                    }
+                }
+            };
         }
 
         // 10. Refatore o endpoint GET /booking
         public BookingResponse GetBooking(int bookingId, string email)
         {
-            var booking = _context.Bookings
-                .Where(bk => bk.BookingId == bookingId)
-                .Include(b => b.User)
-                .FirstOrDefault();
+            var reserva = _context.Bookings.FirstOrDefault(b => b.BookingId == bookingId);
 
-            if (booking == null)
+            if (reserva is null)
             {
-                var notFoundMessage = "Book not found";
-                throw new Exception(notFoundMessage);
+                throw new ArgumentException("Reserva não encontrada");
             }
 
-            bool isAuthorized = booking.BookingId == bookingId && booking.User!.Email == email;
+            var usuario = _context.Users.FirstOrDefault(u => u.UserId == reserva.UserId);
 
-            if (!isAuthorized)
+            if (usuario == null || usuario.Email != email)
             {
-                throw new UnauthorizedAccessException();
+                throw new ArgumentException("Usuário não autorizado a acessar esta reserva");
             }
 
-            return GenerateBookingResponse(booking);
-        }
-
-        public Room GetRoomById(int RoomId)
-        {
-            var room = _context.Rooms.Find(RoomId);
-
-            if (room == null)
-                throw new Exception("Room not found");
-
-            return room;
-        }
-
-        private BookingResponse GenerateBookingResponse(Booking booking)
-        {
-            var room = GetRoomById(booking.RoomId);
-            var hotel = _context.Hotels
-                .Where(ht => ht.HotelId == room.HotelId)
-                .Include(h => h.City)
-                .First();
+            var sala = _context.Rooms.FirstOrDefault(r => r.RoomId == reserva.RoomId);
+            var hotel = _context.Hotels.FirstOrDefault(h => h.HotelId == sala!.HotelId);
+            var cidade = _context.Cities.FirstOrDefault(c => c.CityId == hotel!.CityId);
 
             return new BookingResponse
             {
-                BookingId = booking.BookingId,
-                CheckIn = booking.CheckIn,
-                CheckOut = booking.CheckOut,
-                GuestQuant = booking.GuestQuant,
+                BookingId = reserva.BookingId,
+                CheckIn = reserva.CheckIn,
+                CheckOut = reserva.CheckOut,
+                GuestQuant = reserva.GuestQuant,
                 Room = new RoomDto
                 {
-                    RoomId = room.RoomId,
-                    Capacity = room.Capacity,
-                    Image = room.Image,
-                    Name = room.Name,
+                    RoomId = sala!.RoomId,
+                    Name = sala.Name,
+                    Capacity = sala.Capacity,
+                    Image = sala.Image,
                     Hotel = new HotelDto
                     {
-                        HotelId = hotel.HotelId,
-                        Address = hotel.Address,
-                        CityId = hotel.CityId,
+                        HotelId = hotel!.HotelId,
                         Name = hotel.Name,
-                        CityName = hotel.City!.Name,
-                        State = hotel.City!.State
+                        Address = hotel.Address,
+                        CityId = cidade!.CityId,
+                        CityName = cidade.Name,
+                        State = reserva.Room!.Hotel!.City!.State
                     }
                 }
             };
         }
+
+        public Room GetRoomById(int RoomId)
+        {
+             throw new NotImplementedException();
+        }
+
     }
+
 }

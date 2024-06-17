@@ -1,6 +1,5 @@
 using TrybeHotel.Models;
 using TrybeHotel.Dto;
-using Microsoft.EntityFrameworkCore;
 
 namespace TrybeHotel.Repository
 {
@@ -14,42 +13,35 @@ namespace TrybeHotel.Repository
 
         //  5. Refatore o endpoint GET /hotel
         public IEnumerable<HotelDto> GetHotels()
-        {
-            var hotelsList = _context.Hotels
-                .Include(hotel => hotel.City)
-                .Select(h => new HotelDto
-                {
-                    HotelId = h.HotelId,
-                    Name = h.Name,
-                    Address = h.Address,
-                    CityId = h.CityId,
-                    CityName = h.City!.Name,
-                    State = h.City!.State
-                }).ToList();
-
-            return hotelsList;
+         {
+            var hotels = _context.Hotels.Select(hotel => new HotelDto {
+                HotelId = hotel.HotelId,
+                Name = hotel.Name,
+                Address = hotel.Address,
+                CityId = hotel.CityId,
+                CityName = hotel.City!.Name,
+                State = hotel.City!.State
+            });
+                        return hotels.ToList();
         }
 
         // 6. Refatore o endpoint POST /hotel
         public HotelDto AddHotel(Hotel hotel)
         {
-            var addedHotel = _context.Hotels.Add(hotel).Entity;
+            _context.Hotels.Add(hotel);
             _context.SaveChanges();
 
-            var hotelDetails = _context.Hotels
-                .Where(ht => ht.HotelId == hotel.HotelId)
-                .Include(h => h.City)
-                .Select(h => new HotelDto
-                {
-                    HotelId = h.HotelId,
-                    Name = h.Name,
-                    Address = h.Address,
-                    CityId = h.CityId,
-                    CityName = h.City!.Name,
-                    State = h.City!.State
-                }).First();
+            var city = _context.Cities.FirstOrDefault(c => c.CityId == hotel.CityId);
 
-            return hotelDetails;
+            return new HotelDto
+            {
+                HotelId = hotel.HotelId,
+                Name = hotel.Name,
+                Address = hotel.Address,
+                CityId = hotel.CityId,
+                CityName = city?.Name,
+                State = hotel.City!.State
+            };
         }
     }
 }

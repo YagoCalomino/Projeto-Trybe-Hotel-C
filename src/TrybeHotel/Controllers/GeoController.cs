@@ -26,7 +26,14 @@ namespace TrybeHotel.Controllers
         [Route("status")]
         public async Task<IActionResult> GetStatus()
         {
-            throw new NotImplementedException();
+            var statusGeo = await _geoService.GetGeoStatus();
+
+            if (statusGeo == null)
+            {
+                return StatusCode(502, new { error = "Erro ao obter o status da API externa" });
+            }
+
+            return Ok(statusGeo);
         }
 
         // 12. Desenvolva o endpoint GET /geo/address
@@ -34,7 +41,7 @@ namespace TrybeHotel.Controllers
         [Route("address")]
         public async Task<IActionResult> GetHotelsByLocation([FromBody] GeoDto address)
         {
-            throw new NotImplementedException();
+            return Ok(await _geoService.GetHotelsByGeo(address, _repository));
         }
     }
 

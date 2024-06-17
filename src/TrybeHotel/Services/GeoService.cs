@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Text.Json;
 using TrybeHotel.Dto;
 using TrybeHotel.Repository;
 
@@ -15,23 +16,75 @@ namespace TrybeHotel.Services
         // 11. Desenvolva o endpoint GET /geo/status
         public async Task<object> GetGeoStatus()
         {
-            throw new NotImplementedException();
+            HttpRequestMessage mensagemRequisicao = new HttpRequestMessage(HttpMethod.Get, "https://nominatim.openstreetmap.org/status.php?format=json");
+            mensagemRequisicao.Headers.Add("Accept", "application/json");
+            mensagemRequisicao.Headers.Add("User-Agent", "aspnet-user-agent");
+
+            HttpResponseMessage resposta = await _client.SendAsync(mensagemRequisicao);
+
+            if (resposta.IsSuccessStatusCode)
+            {
+                string conteudo = await resposta.Content.ReadAsStringAsync();
+                return conteudo;
+            }
+            else
+            {
+                return null!;
+            }
         }
         
         // 12. Desenvolva o endpoint GET /geo/address
         public async Task<GeoDtoResponse> GetGeoLocation(GeoDto geoDto)
         {
-            throw new NotImplementedException();
+            var endereco = $"https://nominatim.openstreetmap.org/search?street={geoDto.Address}&city={geoDto.City}&state={geoDto.State}&format=json&limit=1";
+
+            var mensagemRequisicao = new HttpRequestMessage(HttpMethod.Get, endereco);
+
+            mensagemRequisicao.Headers.Add("Accept", "application/json");
+            mensagemRequisicao.Headers.Add("User-Agent", "aspnet-user-agent");
+
+            var resposta = await _client.SendAsync(mensagemRequisicao);
+
+            if (!resposta.IsSuccessStatusCode)
+                return default!;
+
+            var conteudoResposta = await resposta.Content.ReadAsStringAsync();
+
+            var resultado = JsonSerializer.Deserialize<List<GeoDtoResponse>>(conteudoResposta);
+
+            return resultado!.First();
         }
 
         // 12. Desenvolva o endpoint GET /geo/address
         public async Task<List<GeoDtoHotelResponse>> GetHotelsByGeo(GeoDto geoDto, IHotelRepository repository)
         {
-            throw new NotImplementedException();
+            var hoteis = repository.GetHotels();
+            var tarefas = hoteis.Select(async hotel =>
+            {
+                GeoDto geoHotel = new()
+                {
+                    Address = hotel.Address,
+                    City = hotel.CityName,
+                    State = hotel.State
+                };
+                GeoDtoResponse? geoCliente = await GetGeoLocation(geoDto);
+                GeoDtoResponse? geoHotelResposta = await GetGeoLocation(geoHotel);
+                int distancia = 0;
+                if (geoCliente != null && geoHotelResposta != null)
+                    distancia = CalculateDistance(geoCliente.lat!, geoCliente.lon!, geoHotelResposta.lat!, geoHotelResposta.lon!);
+                return new GeoDtoHotelResponse
+                {
+                    HotelId = hotel.HotelId,
+                    Name = hotel.Name,
+                    Address = hotel.Address,
+                    CityName = hotel.CityName,
+                    State = hotel.State,
+                    Distance = distancia
+                };
+            });
+            var todosResultados = await Task.WhenAll(tarefas);
+            return todosResultados.ToList();
         }
-
-       
-
         public int CalculateDistance (string latitudeOrigin, string longitudeOrigin, string latitudeDestiny, string longitudeDestiny) {
             double latOrigin = double.Parse(latitudeOrigin.Replace('.',','));
             double lonOrigin = double.Parse(longitudeOrigin.Replace('.',','));

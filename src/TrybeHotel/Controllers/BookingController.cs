@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using TrybeHotel.Dto;
-using Microsoft.EntityFrameworkCore;
 
 namespace TrybeHotel.Controllers
 {
@@ -22,47 +21,44 @@ namespace TrybeHotel.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "Client")]
         public IActionResult Add([FromBody] BookingDtoInsert bookingInsert){
+            if (bookingInsert == null)
+            {
+                return BadRequest(new { message = "Booking data is required" });
+            }
+
+            var email = User.FindFirst(ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(email))
+            {
+                return Unauthorized(new { message = "Invalid user" });
+            }
+
             try
             {
-                var token = HttpContext.User.Identity as ClaimsIdentity;
-                var emailClaim = token?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Email);
-                var email = emailClaim?.Value;
-
-                var newBooking = _repository.Add(bookingInsert, email!);
-                return StatusCode(201, newBooking);
+                var newBooking = _repository.Add(bookingInsert, email);
+                return CreatedAtAction(nameof(GetBooking), new { BookingId = newBooking.BookingId }, newBooking);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
             {
-                var errorMessage = new { message = ex.Message };
-                return BadRequest(errorMessage);
+                return BadRequest(new { message = ex.Message });
             }
         }
 
 
         [HttpGet("{Bookingid}")]
+         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [Authorize(Policy = "Client")]
         public IActionResult GetBooking(int Bookingid){
+            var t = HttpContext.User.Identity as ClaimsIdentity;
+            var result = t?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Email)?.Value;
+
             try
             {
-                var token = HttpContext.User.Identity as ClaimsIdentity;
-                var emailClaim = token?.Claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Email);
-                var email = emailClaim?.Value;
-
-                var booking = _repository.GetBooking(Bookingid, email!);
-
-                return Ok(booking);
+                return Ok(_repository.GetBooking(Bookingid, result!));
             }
-            catch (UnauthorizedAccessException ex)
+            catch (Exception error)
             {
-                var unauthorizedMessage = new { message = ex.Message };
-                return Unauthorized(unauthorizedMessage);
-            }
-            catch (Exception ex)
-            {
-                var errorMessage = new { message = ex.Message };
-                return BadRequest(errorMessage);
+                return Unauthorized(new { message = error.Message });
             }
         }
     }
